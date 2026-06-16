@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Lighting File Manager</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0f1117;--bg2:#1a1d27;--bg3:#22263a;
+    --border:#2e3250;--text:#e8eaf6;--muted:#8b90b8;
+    --purple:#6c63ff;--purple2:#4f46e5;--teal:#00d4aa;
+    --red:#ff4d6d;--amber:#ffb347;--green:#00c896;
+    --radius:10px;--font:'Segoe UI',system-ui,sans-serif;
+  }
+  body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
+  input,button,select,textarea{font-family:var(--font)}
+
+  /* LOGIN */
+  #login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .login-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:420px}
+  .login-logo{text-align:center;margin-bottom:28px}
+  .login-logo .icon{font-size:40px;margin-bottom:8px}
+  .login-logo h1{font-size:22px;font-weight:600;color:var(--text)}
+  .login-logo p{font-size:13px;color:var(--muted);margin-top:4px}
+  .role-tabs{display:flex;gap:8px;margin-bottom:24px;background:var(--bg3);padding:4px;border-radius:8px}
+  .role-tab{flex:1;padding:8px;text-align:center;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);border:none;background:transparent;transition:.2s}
+  .role-tab.active{background:var(--purple);color:#fff}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:500}
+  .field input{width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;outline:none;transition:.2s}
+  .field input:focus{border-color:var(--purple)}
+  .btn{width:100%;padding:11px;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;transition:.2s}
+  .btn-purple{background:var(--purple);color:#fff}
+  .btn-purple:hover{background:var(--purple2)}
+  .err{color:var(--red);font-size:12px;margin-top:8px;text-align:center;min-height:18px}
+
+  /* APP SHELL */
+  #app{display:none;min-height:100vh;flex-direction:column}
+  .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+  .topbar-left{display:flex;align-items:center;gap:12px}
+  .topbar-logo{font-size:16px;font-weight:700;color:var(--text)}
+  .topbar-logo span{color:var(--purple)}
+  .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+  .badge-admin{background:#2d1f6e;color:#a89ef5}
+  .badge-guest{background:#0d3d30;color:#00d4aa}
+  .topbar-right{display:flex;align-items:center;gap:12px}
+  .user-name{font-size:13px;color:var(--muted)}
+  .btn-sm{padding:6px 14px;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;transition:.2s}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted)}
+  .btn-outline:hover{border-color:var(--purple);color:var(--purple)}
+  .btn-red-sm{background:#3d1020;color:var(--red);border:none}
+  .btn-red-sm:hover{background:#5a1830}
+  .btn-teal-sm{background:#0d3d30;color:var(--teal);border:none}
+  .btn-green-sm{background:#0d3d25;color:var(--green);border:none}
+  .btn-green-sm:hover{background:#0f4a2e}
+
+  /* NAV TABS */
+  .nav-tabs{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;gap:4px}
+  .nav-tab{padding:12px 16px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:.2s;border:none;background:none}
+  .nav-tab.active{color:var(--purple);border-bottom-color:var(--purple)}
+  .nav-tab:hover:not(.active){color:var(--text)}
+
+  /* MAIN */
+  .main{flex:1;padding:24px;max-width:1100px;margin:0 auto;width:100%}
+  .section{display:none}
+  .section.active{display:block}
+  .section-title{font-size:18px;font-weight:600;margin-bottom:20px;color:var(--text)}
+
+  /* SEARCH BAR */
+  .search-row{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+  .search-input{flex:1;min-width:200px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;outline:none}
+  .search-input:focus{border-color:var(--purple)}
+  .filter-select{padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;outline:none;cursor:pointer}
+
+  /* FILE TABLE */
+  .table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  th{padding:11px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;background:var(--bg3);border-bottom:1px solid var(--border)}
+  td{padding:12px 16px;font-size:13px;border-bottom:1px solid var(--border);color:var(--text)}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:var(--bg3)}
+  .file-type{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+  .type-ies{background:#1e1a4a;color:#a89ef5}
+  .type-ldt{background:#0d3d30;color:#00d4aa}
+  .file-size{color:var(--muted);font-size:12px}
+  .empty-state{text-align:center;padding:48px 20px;color:var(--muted)}
+  .empty-state .icon{font-size:36px;margin-bottom:12px}
+  .empty-state p{font-size:14px}
+
+  /* UPLOAD */
+  .upload-area{border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:.2s;margin-bottom:20px;background:var(--bg2)}
+  .upload-area:hover,.upload-area.drag{border-color:var(--purple);background:#1a1740}
+  .upload-area .icon{font-size:36px;margin-bottom:12px}
+  .upload-area p{font-size:14px;color:var(--muted)}
+  .upload-area strong{color:var(--purple)}
+  #file-input{display:none}
+  .upload-queue{margin-bottom:20px}
+  .queue-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px}
+  .queue-name{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .queue-status{font-size:12px;font-weight:600}
+  .status-pending{color:var(--muted)}
+  .status-uploading{color:var(--amber)}
+  .status-done{color:var(--green)}
+  .status-error{color:var(--red)}
+  .progress-bar{width:100%;height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:6px}
+  .progress-fill{height:100%;background:var(--purple);border-radius:2px;transition:width .3s}
+
+  /* CARDS - ADMIN PANELS */
+  .cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:24px}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+  .card-title{font-size:13px;font-weight:600;color:var(--muted);margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em}
+  .stat-val{font-size:28px;font-weight:700;color:var(--text)}
+  .stat-sub{font-size:12px;color:var(--muted);margin-top:4px}
+
+  /* GUEST LOG TABLE */
+  .log-table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  .status-active{color:var(--green);font-weight:600}
+  .status-blocked{color:var(--red);font-weight:600}
+
+  /* SETTINGS */
+  .settings-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;max-width:480px}
+  .settings-title{font-size:14px;font-weight:600;margin-bottom:16px;color:var(--text)}
+  .settings-field{margin-bottom:14px}
+  .settings-field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .settings-field input{width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none}
+  .settings-field input:focus{border-color:var(--purple)}
+  .btn-save{padding:9px 20px;background:var(--purple);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+  .btn-save:hover{background:var(--purple2)}
+  .save-msg{font-size:12px;margin-top:8px;min-height:18px}
+  .save-ok{color:var(--green)}
+  .save-err{color:var(--red)}
+
+  /* TOAST */
+  #toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;z-index:999;opacity:0;transform:translateY(10px);transition:.3s;pointer-events:none}
+  #toast.show{opacity:1;transform:translateY(0)}
+  .toast-ok{background:#0d3d25;color:var(--green);border:1px solid #1a6640}
+  .toast-err{background:#3d1020;color:var(--red);border:1px solid #6a1030}
+
+  /* MODAL */
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:20px}
+  .modal-bg.open{display:flex}
+  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:28px;width:100%;max-width:400px}
+  .modal h3{font-size:16px;font-weight:600;margin-bottom:8px}
+  .modal p{font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6}
+  .modal-btns{display:flex;gap:10px;justify-content:flex-end}
+  .btn-cancel{padding:8px 18px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:8px;font-size:13px;cursor:pointer}
+  .btn-confirm-red{padding:8px 18px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+
+  @media(max-width:600px){
+    .topbar{padding:0 14px}.main{padding:16px}
+    th,td{padding:10px 12px}
+    .search-row{flex-direction:column}
+  }
+</style>
+</head>
+<body>
+
+<!-- CONFIG: Replace with your Supabase values -->
+<script>
+  const SUPABASE_URL = 'https://pnmybrlawmaplwfrihgz.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_eflZ1kBL_RynvNQDSIqnAQ_8ZFNQVw2';
+</script>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon">💡</div>
+      <h1>Lighting File Manager</h1>
+      <p>IES & LDT file library — sign in to continue</p>
+    </div>
+    <div class="role-tabs">
+      <button class="role-tab active" onclick="switchRole('admin')">Admin</button>
+      <button class="role-tab" onclick="switchRole('guest')">Guest</button>
+    </div>
+    <div id="guest-name-field" class="field" style="display:none">
+      <label>Your name</label>
+      <input type="text" id="guest-name" placeholder="Enter your full name"/>
+    </div>
+    <div class="field">
+      <label id="pw-label">Admin password</label>
+      <input type="password" id="login-pw" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <button class="btn btn-purple" onclick="doLogin()">Sign in</button>
+    <div class="err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;flex-direction:column">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-logo">💡 <span>LightingFiles</span></span>
+      <span class="badge" id="role-badge"></span>
+    </div>
+    <div class="topbar-right">
+      <span class="user-name" id="user-label"></span>
+      <button class="btn-sm btn-outline" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="nav-tabs" id="nav-tabs">
+    <button class="nav-tab active" onclick="showSection('files')">Files</button>
+    <button class="nav-tab admin-only" onclick="showSection('upload')" style="display:none">Upload</button>
+    <button class="nav-tab admin-only" onclick="showSection('guests')" style="display:none">Guest activity</button>
+    <button class="nav-tab admin-only" onclick="showSection('settings')" style="display:none">Settings</button>
+  </div>
+
+  <div class="main">
+
+    <!-- FILES SECTION -->
+    <div class="section active" id="sec-files">
+      <div class="search-row">
+        <input class="search-input" id="search-input" placeholder="Search by file name..." oninput="filterFiles()"/>
+        <select class="filter-select" id="type-filter" onchange="filterFiles()">
+          <option value="">All types</option>
+          <option value="ies">.ies</option>
+          <option value="ldt">.ldt</option>
+        </select>
+        <button class="btn-sm btn-outline" onclick="loadFiles()" style="padding:10px 14px">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>File name</th>
+              <th>Type</th>
+              <th>Size</th>
+              <th>Uploaded</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="files-body">
+            <tr><td colspan="5"><div class="empty-state"><div class="icon">📂</div><p>Loading files...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- UPLOAD SECTION (admin only) -->
+    <div class="section" id="sec-upload">
+      <div class="section-title">Upload files</div>
+      <div class="upload-area" id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        <div class="icon">📁</div>
+        <p><strong>Click to browse</strong> or drag & drop files here</p>
+        <p style="margin-top:6px;font-size:12px">Supports .ies and .ldt files</p>
+      </div>
+      <input type="file" id="file-input" multiple accept=".ies,.ldt,.IES,.LDT" onchange="queueFiles(this.files)"/>
+      <div class="upload-queue" id="upload-queue"></div>
+      <button class="btn btn-purple" id="upload-btn" onclick="uploadAll()" style="display:none;max-width:200px">Upload all files</button>
+    </div>
+
+    <!-- GUEST ACTIVITY (admin only) -->
+    <div class="section" id="sec-guests">
+      <div class="section-title">Guest activity log</div>
+      <div class="cards-grid" id="stat-cards"></div>
+      <div class="log-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Guest name</th>
+              <th>Login time</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="guests-body">
+            <tr><td colspan="4"><div class="empty-state"><p>Loading...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SETTINGS (admin only) -->
+    <div class="section" id="sec-settings">
+      <div class="section-title">Settings</div>
+
+      <div class="settings-card">
+        <div class="settings-title">Change admin password</div>
+        <div class="settings-field"><label>New admin password</label><input type="password" id="new-admin-pw" placeholder="Enter new password"/></div>
+        <div class="settings-field"><label>Confirm password</label><input type="password" id="confirm-admin-pw" placeholder="Confirm new password"/></div>
+        <button class="btn-save" onclick="changePassword('admin')">Save admin password</button>
+        <div class="save-msg" id="msg-admin"></div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-title">Change guest password</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">Changing this will immediately lock out all current guests. They will need the new password to log in again.</p>
+        <div class="settings-field"><label>New guest password</label><input type="password" id="new-guest-pw" placeholder="Enter new guest password"/></div>
+        <button class="btn-save" onclick="changePassword('guest')">Save guest password</button>
+        <div class="save-msg" id="msg-guest"></div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-title">Delete a file</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Go to the Files tab — each file has a delete button when you are logged in as admin.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-bg" id="delete-modal">
+  <div class="modal">
+    <h3>Delete file?</h3>
+    <p id="delete-modal-name">This will permanently delete the file. This cannot be undone.</p>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-confirm-red" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentRole = null;
+let currentUser = null;
+let allFiles = [];
+let deleteTarget = null;
+
+// ---- LOGIN ----
+function switchRole(role) {
+  currentRole = role;
+  document.querySelectorAll('.role-tab').forEach((t,i)=>t.classList.toggle('active', (i===0&&role==='admin')||(i===1&&role==='guest')));
+  document.getElementById('guest-name-field').style.display = role==='guest'?'block':'none';
+  document.getElementById('pw-label').textContent = role==='admin'?'Admin password':'Guest password';
+  document.getElementById('login-err').textContent='';
+}
+
+async function doLogin() {
+  const pw = document.getElementById('login-pw').value.trim();
+  const role = currentRole || 'admin';
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if(!pw){errEl.textContent='Please enter your password.';return;}
+
+  const key = role==='admin'?'admin_password':'guest_password';
+  const {data,error} = await sb.from('app_config').select('value').eq('key',key).single();
+  if(error||!data){errEl.textContent='Could not connect. Check your Supabase keys.';return;}
+
+  if(data.value !== pw){errEl.textContent='Incorrect password.';return;}
+
+  if(role==='guest'){
+    const name = document.getElementById('guest-name').value.trim();
+    if(!name){errEl.textContent='Please enter your name.';return;}
+    currentUser = name;
+    await sb.from('guest_logins').insert({name, logged_in_at: new Date().toISOString()});
+    // Check if blocked
+    const {data:logs} = await sb.from('guest_logins').select('blocked').eq('name',name).order('logged_in_at',{ascending:false}).limit(1);
+    if(logs && logs[0] && logs[0].blocked){errEl.textContent='Your access has been blocked. Contact the admin.';return;}
+  } else {
+    currentUser = 'Admin';
+  }
+
+  currentRole = role;
+  launchApp();
+}
+
+function launchApp() {
+  document.getElementById('login-screen').style.display='none';
+  const app = document.getElementById('app');
+  app.style.display='flex';
+  document.getElementById('role-badge').textContent = currentRole==='admin'?'Admin':'Guest';
+  document.getElementById('role-badge').className = 'badge '+(currentRole==='admin'?'badge-admin':'badge-guest');
+  document.getElementById('user-label').textContent = currentUser;
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=currentRole==='admin'?'':'none');
+  loadFiles();
+  if(currentRole==='admin') loadGuestLog();
+}
+
+function doLogout() {
+  currentRole=null;currentUser=null;allFiles=[];
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-pw').value='';
+  document.getElementById('guest-name').value='';
+  document.getElementById('login-err').textContent='';
+  showSection('files');
+  switchRole('admin');
+}
+
+// ---- NAVIGATION ----
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  event && event.target && event.target.classList.add('active');
+  if(name==='guests') loadGuestLog();
+}
+
+// ---- FILES ----
+async function loadFiles() {
+  const {data,error} = await sb.from('files').select('*').order('uploaded_at',{ascending:false});
+  if(error){showToast('Could not load files','err');return;}
+  allFiles = data||[];
+  renderFiles(allFiles);
+}
+
+function filterFiles() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const t = document.getElementById('type-filter').value.toLowerCase();
+  const filtered = allFiles.filter(f=>{
+    const nameMatch = f.name.toLowerCase().includes(q);
+    const typeMatch = !t || (f.type||'').toLowerCase()===t;
+    return nameMatch && typeMatch;
+  });
+  renderFiles(filtered);
+}
+
+function renderFiles(list) {
+  const tbody = document.getElementById('files-body');
+  if(!list.length){
+    tbody.innerHTML=`<tr><td colspan="5"><div class="empty-state"><div class="icon">📂</div><p>No files found</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(f=>{
+    const ext = (f.type||f.name.split('.').pop()||'').toLowerCase();
+    const size = f.size ? formatSize(f.size) : '—';
+    const date = f.uploaded_at ? new Date(f.uploaded_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const delBtn = currentRole==='admin' ? `<button class="btn-sm btn-red-sm" onclick="askDelete('${f.id}','${f.name.replace(/'/g,"\\'")}','${f.storage_path}')">Delete</button>` : '';
+    return `<tr>
+      <td style="font-weight:500">${esc(f.name)}</td>
+      <td><span class="file-type ${ext==='ies'?'type-ies':'type-ldt'}">.${ext}</span></td>
+      <td class="file-size">${size}</td>
+      <td class="file-size">${date}</td>
+      <td style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-sm btn-teal-sm" onclick="downloadFile('${f.storage_path}','${f.name.replace(/'/g,"\\'")}')">Download</button>
+        ${delBtn}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function downloadFile(path, name) {
+  const {data,error} = await sb.storage.from('lighting-files').download(path);
+  if(error){showToast('Download failed','err');return;}
+  const url = URL.createObjectURL(data);
+  const a = document.createElement('a');
+  a.href=url;a.download=name;a.click();
+  URL.revokeObjectURL(url);
+  showToast('Downloading: '+name,'ok');
+}
+
+// ---- UPLOAD ----
+let uploadQueue = [];
+
+function queueFiles(files) {
+  uploadQueue = Array.from(files);
+  renderQueue();
+  document.getElementById('upload-btn').style.display = uploadQueue.length?'block':'none';
+}
+
+function onDragOver(e){e.preventDefault();document.getElementById('drop-zone').classList.add('drag')}
+function onDragLeave(){document.getElementById('drop-zone').classList.remove('drag')}
+function onDrop(e){e.preventDefault();onDragLeave();queueFiles(e.dataTransfer.files)}
+
+function renderQueue() {
+  const el = document.getElementById('upload-queue');
+  el.innerHTML = uploadQueue.map((f,i)=>`
+    <div class="queue-item" id="qi-${i}">
+      <span class="queue-name">${esc(f.name)}</span>
+      <span class="queue-status status-pending" id="qs-${i}">Ready</span>
+    </div>`).join('');
+}
+
+async function uploadAll() {
+  document.getElementById('upload-btn').disabled=true;
+  for(let i=0;i<uploadQueue.length;i++){
+    const f = uploadQueue[i];
+    setQueueStatus(i,'uploading','Uploading...');
+    const path = `${Date.now()}_${f.name}`;
+    const {error:upErr} = await sb.storage.from('lighting-files').upload(path,f,{upsert:true});
+    if(upErr){setQueueStatus(i,'error','Failed');continue;}
+    const ext = f.name.split('.').pop().toLowerCase();
+    await sb.from('files').insert({name:f.name,type:ext,size:f.size,storage_path:path});
+    setQueueStatus(i,'done','Done');
+  }
+  document.getElementById('upload-btn').disabled=false;
+  showToast('Upload complete!','ok');
+  uploadQueue=[];
+  setTimeout(()=>{document.getElementById('upload-queue').innerHTML='';document.getElementById('upload-btn').style.display='none';},2000);
+  loadFiles();
+}
+
+function setQueueStatus(i,type,text){
+  const el=document.getElementById('qs-'+i);
+  if(el){el.className=`queue-status status-${type}`;el.textContent=text;}
+}
+
+// ---- GUEST LOG ----
+async function loadGuestLog() {
+  const {data} = await sb.from('guest_logins').select('*').order('logged_in_at',{ascending:false});
+  const list = data||[];
+
+  // Stats
+  const total = list.length;
+  const blocked = list.filter(g=>g.blocked).length;
+  const today = list.filter(g=>new Date(g.logged_in_at).toDateString()===new Date().toDateString()).length;
+  document.getElementById('stat-cards').innerHTML=`
+    <div class="card"><div class="card-title">Total logins</div><div class="stat-val">${total}</div><div class="stat-sub">All time</div></div>
+    <div class="card"><div class="card-title">Today</div><div class="stat-val">${today}</div><div class="stat-sub">Logins today</div></div>
+    <div class="card"><div class="card-title">Blocked</div><div class="stat-val">${blocked}</div><div class="stat-sub">Blocked guests</div></div>`;
+
+  const tbody = document.getElementById('guests-body');
+  if(!list.length){tbody.innerHTML=`<tr><td colspan="4"><div class="empty-state"><p>No guest logins yet</p></div></td></tr>`;return;}
+  tbody.innerHTML = list.map(g=>{
+    const dt = new Date(g.logged_in_at);
+    const dateStr = dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+    const timeStr = dt.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+    const status = g.blocked?'<span class="status-blocked">Blocked</span>':'<span class="status-active">Active</span>';
+    const btn = g.blocked
+      ? `<button class="btn-sm btn-green-sm" onclick="toggleBlock('${g.id}',false,'${g.name.replace(/'/g,"\\'")}')">Unblock</button>`
+      : `<button class="btn-sm btn-red-sm" onclick="toggleBlock('${g.id}',true,'${g.name.replace(/'/g,"\\'")}')">Block</button>`;
+    return `<tr>
+      <td style="font-weight:500">${esc(g.name)}</td>
+      <td class="file-size">${dateStr} &nbsp; ${timeStr}</td>
+      <td>${status}</td>
+      <td>${btn}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function toggleBlock(id, block, name) {
+  await sb.from('guest_logins').update({blocked:block}).eq('id',id);
+  showToast(block?`${name} blocked`:`${name} unblocked`, block?'err':'ok');
+  loadGuestLog();
+}
+
+// ---- DELETE ----
+function askDelete(id,name,path){
+  deleteTarget={id,name,path};
+  document.getElementById('delete-modal-name').textContent=`Delete "${name}"? This cannot be undone.`;
+  document.getElementById('delete-modal').classList.add('open');
+}
+function closeModal(){document.getElementById('delete-modal').classList.remove('open');deleteTarget=null;}
+async function confirmDelete(){
+  if(!deleteTarget)return;
+  await sb.storage.from('lighting-files').remove([deleteTarget.path]);
+  await sb.from('files').delete().eq('id',deleteTarget.id);
+  closeModal();
+  showToast('File deleted','ok');
+  loadFiles();
+}
+
+// ---- SETTINGS ----
+async function changePassword(role) {
+  const newPw = document.getElementById(`new-${role}-pw`).value.trim();
+  const msgEl = document.getElementById(`msg-${role}`);
+  if(role==='admin'){
+    const confirm = document.getElementById('confirm-admin-pw').value.trim();
+    if(newPw!==confirm){msgEl.className='save-msg save-err';msgEl.textContent='Passwords do not match.';return;}
+  }
+  if(newPw.length<6){msgEl.className='save-msg save-err';msgEl.textContent='Password must be at least 6 characters.';return;}
+  const {error} = await sb.from('app_config').update({value:newPw}).eq('key',`${role}_password`);
+  if(error){msgEl.className='save-msg save-err';msgEl.textContent='Failed to update. Try again.';return;}
+  msgEl.className='save-msg save-ok';msgEl.textContent='Password updated successfully!';
+  document.getElementById(`new-${role}-pw`).value='';
+  if(role==='admin') document.getElementById('confirm-admin-pw').value='';
+  setTimeout(()=>msgEl.textContent='',3000);
+}
+
+// ---- HELPERS ----
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function formatSize(b){if(b<1024)return b+'B';if(b<1048576)return(b/1024).toFixed(1)+'KB';return(b/1048576).toFixed(1)+'MB';}
+function showToast(msg,type){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='';
+  t.classList.add(type==='ok'?'toast-ok':'toast-err','show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+switchRole('admin');
+</script>
+</body>
+</html>
